@@ -7,8 +7,8 @@ commit, with an hourly retry. The mirror uses a repository-specific writable
 GitHub deploy key. Forgejo Actions is disabled for this repository because the
 native builds run on GitHub's Linux and Apple Silicon runners.
 `upstream` tracks https://github.com/tasks/tasks. The desktop app is upstream's
-Compose client, built from this fork's source for Linux x86_64 (`x86_64-linux`) and
-macOS Apple Silicon (`aarch64-darwin`). Android, iOS and Conveyor store publication are outside
+Compose client, built from this fork's source for Linux (`x86_64-linux`) and
+macOS (`aarch64-darwin`). Android, iOS and Conveyor store publication are outside
 this desktop pipeline; their original workflows are kept in `upstream-workflows`.
 
 ## Build and delivery
@@ -28,14 +28,16 @@ The Linux and Mac bundles are imported into Nix using their SHA-256 hashes.
 The Nix wrapper patches Linux ELF interpreters and supplies graphics, font and
 keyring libraries; macOS retains and verifies jpackage's ad-hoc signatures.
 CI builds these packages before publishing. Trusted `main` builds push complete
-Nix closures to `the configured binary cache` using the repository secret
-`ATTIC_TOKEN`. Pull requests cannot use that secret or publish artifacts/cache.
+Nix packages to the configured Attic cache using the repository secrets
+`ATTIC_SERVER`, `ATTIC_CACHE` and `ATTIC_TOKEN`. Cache endpoints, cache names and
+credentials belong in repository secrets and consuming system configuration.
+Pull requests cannot use those secrets or publish artifacts/cache.
 
 Only after both platforms pass does CI publish an immutable
 `desktop-<source-commit>` GitHub prerelease and commit `nix/sources.json` with the
 version, source revision, URLs and hashes. CI pushes the manifest commit and
 release tag atomically to Forgejo before updating GitHub. The repository secret
-`FORGEJO_PUSH_TOKEN` belongs to the restricted `tasks-ci` account, has only
+`FORGEJO_PUSH_TOKEN` belongs to a restricted delivery account, has only
 `write:repository` scope, and is limited to `d/tasks`. The account has write
 access only to this repository and cannot create repositories or organizations.
 Manifest-only pushes are ignored by the workflow, including those arriving via
@@ -71,7 +73,16 @@ programs.tasks-org.enable = true;
 ```
 
 Both modules install the package and leave accounts, database and sync settings
-under the app's control. The fleet already configures the the configured binary cache cache public
-key and host-specific pull credentials. Keep the nixpkgs revision aligned with
-the fleet to reuse the same package closure. Updating the fleet input advances
+under the app's control. Configure cache substituters, signing keys and pull
+credentials in the consuming system. Keep the nixpkgs revision aligned with
+that system to reuse the same package closure. Updating the flake input advances
 to a tested release; CI does not activate personal machines or reboot them.
+
+## Publication checks
+
+CI scans fork commits for secrets, IP addresses, local home paths and configured
+private identifiers before building. `PUBLICATION_DENYLIST` is a repository
+secret containing a JSON array of private identifiers; its contents must never
+be committed. Fork pull requests run the generic checks without that secret.
+The local pre-push hook runs the same checks before any ref is published.
+The scan base is the upstream commit from which this desktop fork was created.

@@ -15,8 +15,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  publication:
+    name: Check publication safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check privacy policy and scanner tests
+        env:
+          PUBLICATION_DENYLIST: ${{ secrets.PUBLICATION_DENYLIST }}
+          REQUIRE_PRIVATE_POLICY: ${{ github.event_name != 'pull_request' }}
+        run: |
+          python3 -m unittest discover -s .github/scripts -p 'test_publication.py'
+          python3 .github/scripts/check_publication.py
+      - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Scan fork history for credentials
+        run: |
+          nix shell --inputs-from . nixpkgs#gitleaks -c gitleaks git . \
+            --log-opts='28f55dcf8e..HEAD' --redact --no-banner
+
   desktop:
     name: ${{ matrix.system }}
+    needs: publication
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     strategy:
@@ -99,6 +124,8 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$ATTIC_TOKEN"
+          test -n "$ATTIC_SERVER"
+          test -n "$ATTIC_CACHE"
           nix shell --inputs-from . nixpkgs#attic-client -c attic login ci "$ATTIC_SERVER" "$ATTIC_TOKEN"
           nix shell --inputs-from . nixpkgs#attic-client -c attic use "ci:$ATTIC_CACHE"
       - name: Build and verify Nix package
@@ -106,10 +133,10 @@ jobs:
           nix build --accept-flake-config --no-update-lock-file -L .#tasks-org
           test -x result/bin/tasks-org
       - name: Publish Nix closure to personal cache
-        env:
-          ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'dweee/tasks'
         shell: bash
+        env:
+          ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
         run: |
           set -euo pipefail
           package=$(python3 -c 'import os; print(os.path.realpath("result"))')
