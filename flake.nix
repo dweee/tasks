@@ -1,7 +1,6 @@
 {
   description = "Tasks.org desktop for Linux x86_64 and macOS Apple Silicon";
 
-
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/7fd4004d0511991fff3a0524856a9be09e28c5f0";
 
   outputs = {self, nixpkgs}: let
