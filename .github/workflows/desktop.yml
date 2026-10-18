@@ -44,9 +44,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          prefix=()
-          if [[ "$RUNNER_OS" == Linux ]]; then prefix=(xvfb-run -a); fi
-          "${prefix[@]}" ./gradlew --no-daemon --max-workers=2 \
+          gradle_command=(./gradlew)
+          if [[ "$RUNNER_OS" == Linux ]]; then gradle_command=(xvfb-run -a ./gradlew); fi
+          "${gradle_command[@]}" --no-daemon --max-workers=2 \
             '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' \
             '-Pkotlin.daemon.jvmargs=-Xmx2g' \
             :data:jvmTest :kmp:jvmTest :composeApp:desktopTest :composeApp:createDistributable
