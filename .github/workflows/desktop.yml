@@ -1,0 +1,200 @@
+name: Desktop build and cache
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    name: ${{ matrix.system }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {system: x86_64-linux, runner: ubuntu-24.04}
+          - {system: aarch64-darwin, runner: macos-15}
+    env:
+      SYSTEM: ${{ matrix.system }}
+      SOURCE_REVISION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-gradle
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+      - name: Install Linux desktop test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libx11-6 libasound2t64 libsecret-1-0
+      - name: Test and compile desktop client from source
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix=()
+          if [[ "$RUNNER_OS" == Linux ]]; then prefix=(xvfb-run -a); fi
+          "${prefix[@]}" ./gradlew --no-daemon --max-workers=2 \
+            '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' \
+            '-Pkotlin.daemon.jvmargs=-Xmx2g' \
+            :data:jvmTest :kmp:jvmTest :composeApp:desktopTest :composeApp:createDistributable
+      - name: Archive desktop bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          app=tasks-org
+          if [[ "$RUNNER_OS" == macOS ]]; then app=tasks-org.app; fi
+          test -d "composeApp/build/compose/binaries/main/app/$app"
+          tar -czf "artifacts/tasks-org-$SYSTEM.tar.gz" -C composeApp/build/compose/binaries/main/app "$app"
+      - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            fallback = true
+            connect-timeout = 5
+      - name: Pin and import the bundle into Nix
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix store prefetch-file --json --name "tasks-org-$SYSTEM.tar.gz" \
+            "file://$PWD/artifacts/tasks-org-$SYSTEM.tar.gz" > artifacts/prefetch.json
+          python3 - <<'PY'
+          import json, os, pathlib
+          system = os.environ['SYSTEM']
+          rev = os.environ['SOURCE_REVISION']
+          version = dict(line.split('=', 1) for line in pathlib.Path('version.properties').read_text().splitlines() if '=' in line)['VERSION_NAME']
+          manifest = {
+              'version': version + '-unstable-' + rev[:12],
+              'revision': rev,
+              'sources': {system: {
+                  'url': f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/releases/download/desktop-{rev}/tasks-org-{system}.tar.gz',
+                  'hash': json.loads(pathlib.Path('artifacts/prefetch.json').read_text())['hash'],
+              }},
+          }
+          text = json.dumps(manifest, indent=2) + '\n'
+          pathlib.Path('nix/sources.json').write_text(text)
+          pathlib.Path(f'artifacts/sources-{system}.json').write_text(text)
+          PY
+          git add nix/sources.json
+      - name: Configure personal cache
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'dweee/tasks'
+        shell: bash
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+          ATTIC_SERVER: ${{ secrets.ATTIC_SERVER }}
+          ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
+        run: |
+          set -euo pipefail
+          test -n "$ATTIC_TOKEN"
+          nix shell --inputs-from . nixpkgs#attic-client -c attic login ci "$ATTIC_SERVER" "$ATTIC_TOKEN"
+          nix shell --inputs-from . nixpkgs#attic-client -c attic use "ci:$ATTIC_CACHE"
+      - name: Build and verify Nix package
+        run: |
+          nix build --accept-flake-config --no-update-lock-file -L .#tasks-org
+          test -x result/bin/tasks-org
+      - name: Publish Nix closure to personal cache
+        env:
+          ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'dweee/tasks'
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=$(python3 -c 'import os; print(os.path.realpath("result"))')
+          nix shell --inputs-from . nixpkgs#attic-client -c attic push "ci:$ATTIC_CACHE" "$package"
+      - name: Remove cache credentials
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.config/attic/config.toml" "$HOME/.netrc"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: desktop-${{ matrix.system }}
+          path: |
+            artifacts/tasks-org-*.tar.gz
+            artifacts/sources-*.json
+          compression-level: 0
+          if-no-files-found: error
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: tests-${{ matrix.system }}
+          path: |
+            data/build/reports/tests
+            kmp/build/reports/tests
+            composeApp/build/reports/tests
+
+  release:
+    name: Publish tested desktop release
+    needs: desktop
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'dweee/tasks'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: desktop-*
+          path: artifacts
+          merge-multiple: true
+      - name: Assemble pinned package manifest
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          files = sorted(pathlib.Path('artifacts').glob('sources-*.json'))
+          assert len(files) == 2, 'Both tested platforms are required'
+          manifests = [json.loads(p.read_text()) for p in files]
+          result = {'version': manifests[0]['version'], 'revision': os.environ['SOURCE_REVISION'], 'sources': {}}
+          for m in manifests:
+              assert m['revision'] == result['revision'] and m['version'] == result['version']
+              result['sources'].update(m['sources'])
+          assert set(result['sources']) == {'x86_64-linux', 'aarch64-darwin'}
+          pathlib.Path('nix/sources.json').write_text(json.dumps(result, indent=2) + '\n')
+          PY
+      - name: Publish immutable bundles and package manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag="desktop-$SOURCE_REVISION"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            mkdir -p existing
+            gh release download "$tag" --pattern sources.json --dir existing
+            python3 - <<'PY'
+          import json, os, pathlib
+          m = json.loads(pathlib.Path('existing/sources.json').read_text())
+          assert m['revision'] == os.environ['SOURCE_REVISION']
+          assert set(m['sources']) == {'x86_64-linux', 'aarch64-darwin'}
+          PY
+            cp existing/sources.json nix/sources.json
+          else
+            gh release create "$tag" --target "$SOURCE_REVISION" --prerelease \
+              --title "Tasks desktop ${SOURCE_REVISION:0:12}" \
+              --notes "Source-built and tested for Linux x86_64 and macOS Apple Silicon. Nix packages published to the configured binary cache. macOS is ad-hoc signed." \
+              artifacts/tasks-org-*.tar.gz nix/sources.json
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add nix/sources.json
+          if ! git diff --cached --quiet; then
+            git commit -m "nix: pin tested desktop bundles ${SOURCE_REVISION:0:12}"
+            git push origin HEAD:main
+          fi
