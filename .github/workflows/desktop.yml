@@ -3,6 +3,7 @@ name: Desktop build and cache
 on:
   push:
     branches: [main]
+    paths-ignore: [nix/sources.json]
   pull_request:
   workflow_dispatch:
 
@@ -146,6 +147,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: main
+          fetch-depth: 0
+      - name: Start delivery from canonical Forgejo main
+        env:
+          FORGEJO_PUSH_TOKEN: ${{ secrets.FORGEJO_PUSH_TOKEN }}
+          GIT_ASKPASS: ${{ github.workspace }}/.github/scripts/forgejo-askpass.sh
+          GIT_TERMINAL_PROMPT: '0'
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$FORGEJO_PUSH_TOKEN"
+          git remote add forgejo https://git.monke.fail/d/tasks.git
+          git -c credential.helper= fetch --no-tags forgejo main
+          git checkout -B delivery FETCH_HEAD
+          git merge-base --is-ancestor "$SOURCE_REVISION" HEAD
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: desktop-*
@@ -170,6 +185,9 @@ jobs:
       - name: Publish immutable bundles and package manifest
         env:
           GH_TOKEN: ${{ github.token }}
+          FORGEJO_PUSH_TOKEN: ${{ secrets.FORGEJO_PUSH_TOKEN }}
+          GIT_ASKPASS: ${{ github.workspace }}/.github/scripts/forgejo-askpass.sh
+          GIT_TERMINAL_PROMPT: '0'
           SOURCE_REVISION: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -195,5 +213,8 @@ jobs:
           git add nix/sources.json
           if ! git diff --cached --quiet; then
             git commit -m "nix: pin tested desktop bundles ${SOURCE_REVISION:0:12}"
-            git push origin HEAD:main
           fi
+          git fetch origin "refs/tags/$tag:refs/tags/$tag"
+          test "$(git rev-parse "$tag^{commit}")" = "$SOURCE_REVISION"
+          git -c credential.helper= push --atomic forgejo HEAD:refs/heads/main "refs/tags/$tag"
+          git push origin HEAD:refs/heads/main

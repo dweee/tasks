@@ -1,6 +1,11 @@
 # Tasks.org desktop fork
 
-Fork: https://github.com/dweee/tasks.
+Canonical fork: https://git.monke.fail/d/tasks.
+Public GitHub mirror and Actions runner: https://github.com/dweee/tasks.
+Push development changes to `gmf`; its push mirror updates GitHub on every
+commit, with an hourly retry. The mirror uses a repository-specific writable
+GitHub deploy key. Forgejo Actions is disabled for this repository because the
+native builds run on GitHub's Linux and Apple Silicon runners.
 `upstream` tracks https://github.com/tasks/tasks. The desktop app is upstream's
 Compose client, built from this fork's source for Linux x86_64 (`x86_64-linux`) and
 macOS Apple Silicon (`aarch64-darwin`). Android, iOS and Conveyor store publication are outside
@@ -8,7 +13,7 @@ this desktop pipeline; their original workflows are kept in `upstream-workflows`
 
 ## Build and delivery
 
-Every push to `main` and pull request compiles and tests both desktop platforms.
+Every source push to `main` and GitHub pull request compiles and tests both desktop platforms.
 CI uses upstream's Gradle wrapper and JDK 25, runs the data, KMP and Compose
 desktop tests, and makes a release-mode self-contained jpackage application.
 Release mode uses the normal Tasks.org profile rather than Tasks.org.debug.
@@ -28,8 +33,14 @@ Nix closures to `the configured binary cache` using the repository secret
 
 Only after both platforms pass does CI publish an immutable
 `desktop-<source-commit>` GitHub prerelease and commit `nix/sources.json` with the
-version, source revision, URLs and hashes. GitHub's workflow token does not
-retrigger CI for this manifest-only commit. The package is the tested source
+version, source revision, URLs and hashes. CI pushes the manifest commit and
+release tag atomically to Forgejo before updating GitHub. The repository secret
+`FORGEJO_PUSH_TOKEN` belongs to the restricted `tasks-ci` account, has only
+`write:repository` scope, and is limited to `d/tasks`. The account has write
+access only to this repository and cannot create repositories or organizations.
+Manifest-only pushes are ignored by the workflow, including those arriving via
+the Forgejo mirror. Non-fast-forward publication fails rather than overwriting
+new source commits. The package is the tested source
 build from that release, rather than a build of an unpinned upstream binary.
 The manifest is initially populated by the first successful desktop workflow.
 
@@ -52,7 +63,7 @@ it does not provision the Android SDK used during Gradle configuration.
 ## NixOS and nix-darwin
 
 ```nix
-inputs.tasks-org.url = "github:dweee/tasks";
+inputs.tasks-org.url = "git+https://git.monke.fail/d/tasks.git";
 inputs.tasks-org.inputs.nixpkgs.follows = "nixpkgs";
 # Add inputs.tasks-org.nixosModules.default to NixOS modules, or
 # inputs.tasks-org.darwinModules.default to nix-darwin modules, then:

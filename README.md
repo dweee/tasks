@@ -2,6 +2,8 @@ This fork builds the Tasks.org desktop client for **Linux x86_64 (Linux x86_64)*
 **macOS Apple Silicon (Apple Silicon)**, with Nix packages and CI delivery through the the configured binary cache
 Attic cache. See [build and installation instructions](nix/README.md) and
 [desktop CI](https://github.com/dweee/tasks/actions/workflows/desktop.yml).
+The canonical fork is [d/tasks on Forgejo](https://git.monke.fail/d/tasks),
+with a [public GitHub mirror](https://github.com/dweee/tasks) running Actions.
 
 ---
 
