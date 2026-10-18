@@ -11,6 +11,7 @@ data class PlatformConfiguration(
     val supportsGoogleTasks: Boolean = false,
     val supportsMicrosoft: Boolean = false,
     val thirdPartySyncRequiresPro: Boolean = false,
+    val supportsDecsync: Boolean = false,
     val supportsOpenTasks: Boolean = false,
     val supportsEteSync: Boolean = false,
 

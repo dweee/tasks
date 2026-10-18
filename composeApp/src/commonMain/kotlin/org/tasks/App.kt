@@ -854,7 +854,7 @@ fun App(
                                 )
                                 if (configuration.thirdPartySyncRequiresPro && !addAccountViewModel.hasPro) {
                                     when (platform) {
-                                        Platform.CALDAV, Platform.ETEBASE, Platform.GOOGLE_TASKS, Platform.MICROSOFT -> {
+                                        Platform.CALDAV, Platform.ETEBASE, Platform.DECSYNC, Platform.GOOGLE_TASKS, Platform.MICROSOFT -> {
                                             backStack.push(PricingDestination(mode = PricingMode.NYP_ONLY, source = platform.name))
                                             return@AddAccountScreen
                                         }
@@ -2919,7 +2919,7 @@ private fun SettingsScreen(
                                         )
                                     }
                                 }
-                                account.isOpenTasks -> {
+                                account.isOpenTasks || account.isDecsync -> {
                                     scope.launch {
                                         navigator.navigateTo(
                                             ListDetailPaneScaffoldRole.Detail,

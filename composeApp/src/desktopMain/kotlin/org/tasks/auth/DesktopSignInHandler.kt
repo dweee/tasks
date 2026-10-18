@@ -24,9 +24,14 @@ class DesktopSignInHandler(
     private val caldavClientProvider: CaldavClientProvider,
     private val proxyAuthProvider: ProxyAuthProvider,
     private val reporting: Reporting,
+    private val decsyncStores: org.tasks.decsync.DecsyncStoreProvider,
 ) : SignInHandler {
 
     override suspend fun signIn(platform: Platform, provider: OAuthProvider?, openUrl: (String) -> Unit) {
+        if (platform == Platform.DECSYNC) {
+            connectDecsyncFolder()
+            return
+        }
         val oauthProvider = provider ?: when (platform) {
             Platform.TASKS_ORG -> OAuthProvider.GOOGLE
             Platform.GOOGLE_TASKS -> OAuthProvider.GOOGLE_TASKS
@@ -63,6 +68,34 @@ class DesktopSignInHandler(
         }
         Logger.i(TAG) { "Account created successfully" }
         bringAppToForeground()
+    }
+
+    private suspend fun connectDecsyncFolder() {
+        val selected = kotlinx.coroutines.suspendCancellableCoroutine<java.io.File?> { continuation ->
+            java.awt.EventQueue.invokeLater {
+                val chooser = javax.swing.JFileChooser().apply {
+                    dialogTitle = "Choose the DecSync folder shared with your phone"
+                    fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+                    isAcceptAllFileFilterUsed = false
+                }
+                val file = if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) chooser.selectedFile else null
+                if (continuation.isActive) continuation.resumeWith(Result.success(file))
+            }
+        } ?: return
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val root = selected.toPath().toRealPath()
+            val account = CaldavAccount(
+                uuid = java.util.UUID.randomUUID().toString(),
+                accountType = CaldavAccount.TYPE_DECSYNC,
+                name = "DecSync",
+                url = root.toString(),
+            )
+            decsyncStores.forAccount(account).collections()
+            check(caldavDao.getAccounts(CaldavAccount.TYPE_DECSYNC).none { it.url == account.url }) {
+                "This DecSync folder is already connected."
+            }
+            caldavDao.insert(account)
+        }
     }
 
     private suspend fun setupGoogleTasksAccount(result: OAuthResult) {

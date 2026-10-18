@@ -697,4 +697,9 @@
     <string name="reset_trusted_certificates">Reset trusted certificates</string>
     <string name="reset_trusted_certificates_summary">Forget certificates and certificate authorities you accepted for servers</string>
     <string name="trusted_certificates_reset">Trusted certificates reset</string>
+    <string name="decsync_desktop">DecSync folder</string>
+    <string name="decsync_desktop_description">Sync tasks with DecSync CC through a shared Syncthing folder</string>
+    <string name="decsync_folder_help">Share this DecSync folder with your phone using Syncthing. Keep Syncthing running on both devices. Changes are checked every 30 seconds while this app is open.</string>
+    <string name="decsync_disconnect">Disconnect folder</string>
+    <string name="decsync_disconnect_message">Remove this account and its tasks from this desktop only? The shared DecSync files and tasks on other devices will be kept.</string>
 </resources>

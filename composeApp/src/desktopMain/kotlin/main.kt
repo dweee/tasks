@@ -228,6 +228,9 @@ fun main() {
         var closing by remember { mutableStateOf(false) }
         val windowState = rememberWindowState(size = DpSize(DEFAULT_WIDTH, DEFAULT_HEIGHT))
         var windowReady by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            org.tasks.decsync.DecsyncFolderMonitor(koin.get(), koin.get()).run()
+        }
         // Restore saved window size and position before showing the window
         LaunchedEffect(Unit) {
             val w = preferences.get(TasksPreferences.windowWidth, 0)

@@ -5,6 +5,7 @@ enum class Platform {
     GOOGLE_TASKS,
     MICROSOFT,
     DAVX5,
+    DECSYNC,
     CALDAV,
     ETEBASE,
 }

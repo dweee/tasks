@@ -179,6 +179,7 @@ actual fun platformModule(): Module = module {
             billingProvider = BillingProvider.STRIPE,
             thirdPartySyncRequiresPro = true,
             supportsCaldav = true,
+            supportsDecsync = true,
             supportsEteSync = true,
             supportsGoogleTasks = true,
             supportsMicrosoft = true,
@@ -349,6 +350,8 @@ actual fun platformModule(): Module = module {
             httpClientFactory = get(),
         )
     }
+    single { org.tasks.decsync.DecsyncStoreProvider(File(dataDir, ".decsync-writer-id").toPath()) }
+    factory { org.tasks.decsync.DecsyncSynchronizer(get(), get(), get(), get(), get(), get(), get()) } bind org.tasks.decsync.DecsyncSyncer::class
     factory<OpenTasksSyncer> {
         val caldavDao = get<org.tasks.data.dao.CaldavDao>()
         val refreshBroadcaster = get<org.tasks.broadcast.RefreshBroadcaster>()
@@ -362,6 +365,7 @@ actual fun platformModule(): Module = module {
             }
         }
     }
+    factory<org.tasks.caldav.CaldavClientFactory> { org.tasks.decsync.DecsyncClientFactory(get<org.tasks.caldav.CaldavClientProvider>(), get()) }
     factoryOf(::VtodoCache)
     single {
         PurchaseEntitlement(

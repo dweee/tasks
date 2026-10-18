@@ -123,6 +123,7 @@ val commonModule = module {
         val scope = get<CoroutineScope>()
         val refreshScheduler = get<RefreshScheduler>()
         val runner = SyncRunner(scope, get(), { get() }) { pass ->
+            getOrNull<org.tasks.decsync.DecsyncSyncer>()?.sync(hasPro = pass.hasPro)
             val caldavSynchronizer = get<CaldavSynchronizer>()
             val etebaseSynchronizer = get<EtebaseSynchronizer>()
             pass.accounts(TYPE_CALDAV, TYPE_TASKS).forEach { account ->
