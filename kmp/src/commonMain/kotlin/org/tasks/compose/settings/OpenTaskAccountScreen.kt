@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.stringResource
 import org.tasks.compose.PlatformBackHandler
 import tasks.kmp.generated.resources.Res
+import tasks.kmp.generated.resources.decsync_folder_help
+import tasks.kmp.generated.resources.decsync_disconnect
 import tasks.kmp.generated.resources.cancel
 import tasks.kmp.generated.resources.discard
 import tasks.kmp.generated.resources.discard_changes
@@ -38,6 +40,8 @@ fun OpenTaskAccountScreen(
     onSave: () -> Unit,
     onNavigateBack: () -> Unit,
     onDiscardDialogChange: (Boolean) -> Unit,
+    folder: String? = null,
+    onDisconnect: () -> Unit = {},
 ) {
     PlatformBackHandler(enabled = hasChanges) {
         onDiscardDialogChange(true)
@@ -71,6 +75,15 @@ fun OpenTaskAccountScreen(
         }
 
         Spacer(modifier = Modifier.height(SettingsContentPadding))
+
+        folder?.let {
+            Column(modifier = Modifier.padding(horizontal = SettingsContentPadding)) {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.decsync_folder_help), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onDisconnect) { Text(stringResource(Res.string.decsync_disconnect)) }
+            }
+            Spacer(modifier = Modifier.height(SettingsContentPadding))
+        }
 
         if (showServerType) {
             Column(

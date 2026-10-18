@@ -1,5 +1,9 @@
 package org.tasks.compose.settings
 
+import kotlinx.coroutines.launch
+import tasks.kmp.generated.resources.decsync_disconnect
+import tasks.kmp.generated.resources.decsync_disconnect_message
+import tasks.kmp.generated.resources.cancel
 import org.tasks.themes.TasksIcons
 import org.tasks.compose.components.SymbolIcon
 import androidx.compose.foundation.layout.Box
@@ -33,6 +37,24 @@ fun OpenTaskAccountSettingsDetail(
     onNavigateBack: () -> Unit,
 ) {
     val viewModel = koinViewModel<OpenTaskAccountViewModel>()
+    val deleter = org.koin.compose.koinInject<org.tasks.service.TaskDeleter>()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var confirmDisconnect by remember { mutableStateOf(false) }
+    if (confirmDisconnect) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDisconnect = false },
+            text = { Text(stringResource(Res.string.decsync_disconnect_message)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    confirmDisconnect = false
+                    scope.launch { deleter.delete(pane.account); onNavigateBack() }
+                }) { Text(stringResource(Res.string.decsync_disconnect)) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmDisconnect = false }) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
     LaunchedEffect(pane.account.id) { viewModel.setAccount(pane.account) }
     val displayName by viewModel.displayName.collectAsState()
     val nameError by viewModel.nameError.collectAsState()
@@ -73,6 +95,8 @@ fun OpenTaskAccountSettingsDetail(
                 .padding(padding),
         ) {
             OpenTaskAccountScreen(
+                folder = account?.takeIf { it.isDecsync }?.url,
+                onDisconnect = { confirmDisconnect = true },
                 displayName = displayName,
                 nameError = nameError,
                 serverType = serverType,

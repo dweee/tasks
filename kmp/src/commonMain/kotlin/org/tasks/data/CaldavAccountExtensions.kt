@@ -27,6 +27,7 @@ import tasks.kmp.generated.resources.ic_webdav_logo
 import tasks.kmp.generated.resources.ksync
 import tasks.kmp.generated.resources.local_lists
 import tasks.kmp.generated.resources.microsoft
+import tasks.kmp.generated.resources.decsync_desktop
 import tasks.kmp.generated.resources.silentsuite
 import tasks.kmp.generated.resources.tasks_org_account
 
@@ -63,6 +64,7 @@ val CaldavAccount.openTaskApp: OpenTaskApp?
 val CaldavAccount.composeTitle: StringResource?
     get() = when {
         isTasksOrg -> Res.string.tasks_org_account
+        isDecsync -> Res.string.decsync_desktop
         isCaldavAccount -> Res.string.caldav
         isEtebaseAccount -> Res.string.etesync
         isMicrosoft -> Res.string.microsoft
@@ -74,6 +76,7 @@ val CaldavAccount.composeTitle: StringResource?
 val CaldavAccount.composeIcon: AccountIcon?
     get() = when {
         isTasksOrg -> AccountIcon(Res.drawable.ic_round_icon, false)
+        isDecsync -> AccountIcon(Res.drawable.ic_decsync, false)
         isCaldavAccount -> AccountIcon(Res.drawable.ic_webdav_logo, true)
         isEtebaseAccount -> AccountIcon(Res.drawable.ic_etesync, false)
         isMicrosoft -> AccountIcon(Res.drawable.ic_microsoft_tasks, false)

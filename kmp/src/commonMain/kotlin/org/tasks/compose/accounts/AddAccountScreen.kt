@@ -54,6 +54,9 @@ import org.tasks.compose.settings.SettingsItemCard
 import org.tasks.compose.settings.SettingsRowPadding
 import org.tasks.compose.settings.SettingsSectionGap
 import tasks.kmp.generated.resources.Res
+import tasks.kmp.generated.resources.decsync_desktop
+import tasks.kmp.generated.resources.decsync_desktop_description
+import tasks.kmp.generated.resources.ic_decsync
 import tasks.kmp.generated.resources.accept
 import tasks.kmp.generated.resources.add_account
 import tasks.kmp.generated.resources.back
@@ -250,6 +253,7 @@ fun AddAccountScreen(
                     if (configuration.supportsGoogleTasks && configuration.thirdPartySyncRequiresPro) {
                         add(Platform.GOOGLE_TASKS)
                     }
+                    if (configuration.supportsDecsync) add(Platform.DECSYNC)
                     if (configuration.supportsOpenTasks) add(Platform.DAVX5)
                     if (configuration.supportsCaldav) add(Platform.CALDAV)
                     if (configuration.supportsEteSync) add(Platform.ETEBASE)
@@ -290,6 +294,12 @@ fun AddAccountScreen(
                                         icon = Res.drawable.ic_google,
                                         description = stringResource(Res.string.google_tasks_selection_description),
                                         onClick = { signIn(Platform.GOOGLE_TASKS) },
+                                    )
+                                    Platform.DECSYNC -> AccountTypeRow(
+                                        title = stringResource(Res.string.decsync_desktop),
+                                        icon = Res.drawable.ic_decsync,
+                                        description = stringResource(Res.string.decsync_desktop_description),
+                                        onClick = { signIn(Platform.DECSYNC) },
                                     )
                                     Platform.DAVX5 -> AccountTypeRow(
                                         title = stringResource(Res.string.davx5),

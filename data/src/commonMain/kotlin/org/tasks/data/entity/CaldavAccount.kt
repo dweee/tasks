@@ -46,12 +46,15 @@ data class CaldavAccount(
     var lastSync: Long = 0,
 ) : CommonParcelable {
     val needsPro: Boolean
-        get() = isCaldavAccount || isEtebaseAccount || isOpenTasks
+        get() = isCaldavAccount || isEtebaseAccount || isOpenTasks || isDecsync
     val isCaldavAccount: Boolean
         get() = accountType == TYPE_CALDAV
 
     val isEtebaseAccount: Boolean
         get() = accountType == TYPE_ETEBASE
+
+    val isDecsync: Boolean
+        get() = accountType == TYPE_DECSYNC
 
     val isOpenTasks: Boolean
         get() = accountType == TYPE_OPENTASKS
@@ -113,11 +116,13 @@ data class CaldavAccount(
         const val TYPE_MICROSOFT = 6
         const val TYPE_GOOGLE_TASKS = 7
 
-        val TYPES_CALDAV = listOf(TYPE_CALDAV, TYPE_TASKS, TYPE_ETEBASE, TYPE_OPENTASKS)
+        const val TYPE_DECSYNC = 8
+
+        val TYPES_CALDAV = listOf(TYPE_CALDAV, TYPE_TASKS, TYPE_ETEBASE, TYPE_OPENTASKS, TYPE_DECSYNC)
 
         private val ALL_ACCOUNT_TYPES = listOf(
             TYPE_CALDAV, TYPE_TASKS, TYPE_ETEBASE, TYPE_OPENTASKS,
-            TYPE_MICROSOFT, TYPE_GOOGLE_TASKS, TYPE_LOCAL,
+            TYPE_MICROSOFT, TYPE_GOOGLE_TASKS, TYPE_LOCAL, TYPE_DECSYNC,
         )
 
         val TYPES_NON_LOCAL = ALL_ACCOUNT_TYPES.filter { it != TYPE_LOCAL }

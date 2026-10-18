@@ -59,3 +59,5 @@ Please visit [tasks.org](https://tasks.org) for end user documentation and suppo
 You can submit questions to [GitHub Discussions](https://github.com/tasks/tasks/discussions).
 
 If you have a suggestion or want to report a bug, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Desktop folder synchronization: [DecSync CC and Syncthing setup](docs/desktop-decsync.md).

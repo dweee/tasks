@@ -50,7 +50,7 @@ open class OpenTaskAccountViewModel(
         displayName.value = account.name.orEmpty()
         nameError.value = null
         serverType.value = account.serverType
-        showServerType.value = account.uuid.openTaskProvider() != OpenTaskProvider.KSYNC
+        showServerType.value = !account.isDecsync && account.uuid.openTaskProvider() != OpenTaskProvider.KSYNC
     }
 
     fun setDisplayName(name: String) {

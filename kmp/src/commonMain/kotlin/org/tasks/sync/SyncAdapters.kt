@@ -168,6 +168,7 @@ class SyncAdapters(
             TYPE_TASKS,
             TYPE_ETEBASE,
             TYPE_MICROSOFT,
+            org.tasks.data.entity.CaldavAccount.TYPE_DECSYNC,
         )
     }
 }
