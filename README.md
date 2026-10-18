@@ -1,3 +1,10 @@
+This fork builds the Tasks.org desktop client for **Linux x86_64 (Linux x86_64)** and
+**macOS Apple Silicon (Apple Silicon)**, with Nix packages and CI delivery through the the configured binary cache
+Attic cache. See [build and installation instructions](nix/README.md) and
+[desktop CI](https://github.com/dweee/tasks/actions/workflows/desktop.yml).
+
+---
+
 Astrid was a popular cross-platform productivity service that was [acquired](https://web.archive.org/web/20130811052500/http://blog.astrid.com/blog/2013/05/01/yahoo-acquires-astrid/) and [discontinued](https://techcrunch.com/2013/07/06/astrid-goes-dark-august-5-goodnight-sweet-squid/) in 2013. The source code from Astrid's open source Android app serves as the basis of Tasks.
 
 [<img src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png"
