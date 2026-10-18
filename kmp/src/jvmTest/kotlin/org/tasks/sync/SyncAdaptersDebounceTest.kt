@@ -2,9 +2,9 @@ package org.tasks.sync
 
 import androidx.room3.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -22,8 +22,12 @@ import org.tasks.data.entity.Task
 import org.tasks.jobs.BackgroundWork
 
 class SyncAdaptersDebounceTest {
+    // Share virtual time between database invalidations and debounce collectors.
+    // Real database writes plus 75 ms sleeps can exceed the 100 ms window on CI.
+    private val testDispatcher = StandardTestDispatcher()
     private val db = Room.inMemoryDatabaseBuilder<Database>()
         .setDriver(BundledSQLiteDriver())
+        .setQueryCoroutineContext(testDispatcher)
         .addCallback(Database.CALLBACK)
         .build()
     private val caldavDao: CaldavDao = db.caldavDao()
@@ -53,12 +57,12 @@ class SyncAdaptersDebounceTest {
         openTaskListsActive = { false },
         tasksPreferences = mock(),
         refreshBroadcaster = mock(),
-        coroutineContext = Dispatchers.Default,
+        coroutineContext = testDispatcher,
         debounceMs = DEBOUNCE,
     )
 
     @Test
-    fun burstOfDirtyTasksSyncsOnce() = runBlocking {
+    fun burstOfDirtyTasksSyncsOnce() = runTest(testDispatcher) {
         setupAccount()
         syncAdapters()
         quiet()
@@ -73,7 +77,7 @@ class SyncAdaptersDebounceTest {
     }
 
     @Test
-    fun quietPeriodBetweenChangesSyncsTwice() = runBlocking {
+    fun quietPeriodBetweenChangesSyncsTwice() = runTest(testDispatcher) {
         setupAccount()
         syncAdapters()
         quiet()
@@ -87,7 +91,7 @@ class SyncAdaptersDebounceTest {
     }
 
     @Test
-    fun stuckDirtyTaskDoesNotResync() = runBlocking {
+    fun stuckDirtyTaskDoesNotResync() = runTest(testDispatcher) {
         setupAccount()
         syncAdapters()
         quiet()
@@ -103,7 +107,7 @@ class SyncAdaptersDebounceTest {
     }
 
     @Test
-    fun newWorkAfterAStuckTaskStillSyncs() = runBlocking {
+    fun newWorkAfterAStuckTaskStillSyncs() = runTest(testDispatcher) {
         setupAccount()
         syncAdapters()
         quiet()
@@ -119,7 +123,7 @@ class SyncAdaptersDebounceTest {
     }
 
     @Test
-    fun directRequestSyncsEvenWhenDirtySetUnchanged() = runBlocking {
+    fun directRequestSyncsEvenWhenDirtySetUnchanged() = runTest(testDispatcher) {
         setupAccount()
         val adapters = syncAdapters()
         quiet()
@@ -134,7 +138,7 @@ class SyncAdaptersDebounceTest {
     }
 
     @Test
-    fun quietRequestsStillSync() = runBlocking {
+    fun quietRequestsStillSync() = runTest(testDispatcher) {
         setupAccount()
         val adapters = syncAdapters()
         quiet()
@@ -146,7 +150,7 @@ class SyncAdaptersDebounceTest {
     }
 
     @Test
-    fun directRequestDuringBurstKeepsItsPriority() = runBlocking {
+    fun directRequestDuringBurstKeepsItsPriority() = runTest(testDispatcher) {
         setupAccount()
         val adapters = syncAdapters()
         quiet()
@@ -160,7 +164,7 @@ class SyncAdaptersDebounceTest {
     }
 
     @Test
-    fun localTaskDoesNotSync() = runBlocking {
+    fun localTaskDoesNotSync() = runTest(testDispatcher) {
         syncAdapters()
         quiet()
 
