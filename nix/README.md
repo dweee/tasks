@@ -10,9 +10,13 @@ this desktop pipeline; their original workflows are kept in `upstream-workflows`
 
 Every push to `main` and pull request compiles and tests both desktop platforms.
 CI uses upstream's Gradle wrapper and JDK 25, runs the data, KMP and Compose
-desktop tests, and makes a self-contained jpackage application. SQLite's bundled
+desktop tests, and makes a release-mode self-contained jpackage application.
+Release mode uses the normal Tasks.org profile rather than Tasks.org.debug.
+SQLite's bundled
 JVM dependency already supports both targets; Conveyor's extra Windows ARM and
-Intel Mac SQLite overrides are not needed here. No upstream publishing or signing
+Intel Mac SQLite overrides are not needed here. `-PstandaloneDesktop=true` limits
+this exception to the two supported native hosts; Conveyor builds retain their
+original native-resource validation. No upstream publishing or signing
 credentials are used. PostHog's application key is left empty.
 
 The Linux and Mac bundles are imported into Nix using their SHA-256 hashes.
@@ -38,7 +42,8 @@ Nix packages consume the pinned CI artifacts. To compile edited Kotlin locally,
 use JDK 25 and an Android SDK matching `gradle/libs.versions.toml`, then run:
 
 ```sh
-./gradlew :data:jvmTest :kmp:jvmTest :composeApp:desktopTest :composeApp:createDistributable
+./gradlew :data:jvmTest :kmp:jvmTest :composeApp:desktopTest
+./gradlew -Prelease -PstandaloneDesktop=true :composeApp:createDistributable
 ```
 
 On headless Linux run this under `xvfb-run`. `nix develop` supplies JDK 25 and Git;

@@ -46,10 +46,9 @@ jobs:
           set -euo pipefail
           gradle_command=(./gradlew)
           if [[ "$RUNNER_OS" == Linux ]]; then gradle_command=(xvfb-run -a ./gradlew); fi
-          "${gradle_command[@]}" --no-daemon --max-workers=2 \
-            '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' \
-            '-Pkotlin.daemon.jvmargs=-Xmx2g' \
-            :data:jvmTest :kmp:jvmTest :composeApp:desktopTest :composeApp:createDistributable
+          gradle_options=(--no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' '-Pkotlin.daemon.jvmargs=-Xmx2g')
+          "${gradle_command[@]}" "${gradle_options[@]}" :data:jvmTest :kmp:jvmTest :composeApp:desktopTest
+          ./gradlew "${gradle_options[@]}" -Prelease -PstandaloneDesktop=true :composeApp:createDistributable
       - name: Archive desktop bundle
         shell: bash
         run: |

@@ -204,7 +204,19 @@ kotlin.sourceSets.named("desktopMain") {
     sqliteNatives.orNull?.let { resources.srcDir(it) }
 }
 
-if (providers.gradleProperty("release").isPresent) {
+// Conveyor assembles all six platforms from one jar. Standalone jpackage builds
+// for Linux x64 and Apple Silicon use the SQLite natives already in its JVM jar.
+val standaloneDesktop = providers.gradleProperty("standaloneDesktop")
+    .map(String::toBoolean).getOrElse(false)
+if (standaloneDesktop) {
+    val os = System.getProperty("os.name")
+    val arch = System.getProperty("os.arch")
+    check((os == "Linux" && arch == "amd64") || (os.startsWith("Mac") && arch == "aarch64")) {
+        "Standalone desktop packaging supports Linux x64 and Apple Silicon only"
+    }
+}
+
+if (providers.gradleProperty("release").isPresent && !standaloneDesktop) {
     val libs = sqliteNatives.map { dir ->
         listOf("windows_arm64/sqliteJni.dll", "osx_x64/libsqliteJni.dylib")
             .map { dir.file("natives/$it").asFile }
