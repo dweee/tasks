@@ -1,1 +1,14 @@
-{}
+{
+  "version": "15.13-unstable-56bb9d41f9f9",
+  "revision": "56bb9d41f9f92992c3cb264e4fd16ffe7ad6ac99",
+  "sources": {
+    "aarch64-darwin": {
+      "url": "https://github.com/dweee/tasks/releases/download/desktop-56bb9d41f9f92992c3cb264e4fd16ffe7ad6ac99/tasks-org-aarch64-darwin.tar.gz",
+      "hash": "sha256-kEAzJuXCNUIo621iUlC3QakTkaX7dXCbMwmhvoDcDZ4="
+    },
+    "x86_64-linux": {
+      "url": "https://github.com/dweee/tasks/releases/download/desktop-56bb9d41f9f92992c3cb264e4fd16ffe7ad6ac99/tasks-org-x86_64-linux.tar.gz",
+      "hash": "sha256-zyMUlSewztcxaQJGQuxLMieOv3Ls+2usdzEwBlb2AwI="
+    }
+  }
+}
