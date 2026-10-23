@@ -1,0 +1,20 @@
+{
+  "targets": {
+    "x86_64-linux": [
+      {
+        "attribute": "packages.x86_64-linux.default",
+        "visibility": "private"
+      }
+    ]
+  },
+  "excludedSystems": [
+    "aarch64-darwin"
+  ],
+  "submodules": false,
+  "integrationInventory": false,
+  "version": 1,
+  "forge": "forgejo",
+  "repository": "d/tasks",
+  "branch": "main",
+  "remote": "https://git.monke.fail/d/tasks.git"
+}
