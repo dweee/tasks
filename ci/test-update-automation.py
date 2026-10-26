@@ -26,6 +26,20 @@ a = load('automation-forge')
 
 
 class Updates(unittest.TestCase):
+    def test_updater_failure_detail_redacts_credentials(self):
+        text = 'noise\nerror: unable to download https://u:p@api.github.com/x: HTTP error 403 ghp_abcDEF123 secret-tok'
+        detail = u.safe_detail(text, 'secret-tok')
+        self.assertIn('HTTP error 403', detail)
+        for leaked in ['u:p', 'ghp_', 'secret-tok', 'noise']:
+            self.assertNotIn(leaked, detail)
+
+    def test_updater_gives_nix_the_github_token_through_the_environment_only(self):
+        done = subprocess.CompletedProcess([], 0, 'ok', '')
+        with patch.object(u.subprocess, 'run', return_value=done) as run, patch.dict(u.os.environ, {'GH_TOKEN': 'tok'}):
+            u.run('nix', 'flake', 'lock')
+        self.assertIn('access-tokens = github.com=tok', run.call_args.kwargs['env']['NIX_CONFIG'])
+        self.assertNotIn('tok', run.call_args.args)
+
     def test_renamed_repository_redirect_keeps_auth_on_the_same_api_host(self):
         source = 'https://api.github.com/repos/old/name/releases/latest'
         target = 'https://api.github.com/repositories/123/releases/latest'
@@ -70,6 +84,15 @@ class Updates(unittest.TestCase):
         text = 'inputs = { tool = { # note\n url = "old"; inputs.nixpkgs.follows = "nixpkgs"; }; tool-src.url = "other"; };'
         match = u.url_match(text, 'tool')
         self.assertEqual(text[match.start(1):match.end(1)], 'old')
+
+    def test_input_names_are_not_suffixes_of_other_nix_identifiers(self):
+        for prefix in ['pumpkin-', 'other_', "other'", 'other']:
+            for declaration in ['nixpkgs.url = "other";', 'nixpkgs = { url = "other"; };']:
+                with self.subTest(prefix=prefix, declaration=declaration):
+                    text = 'inputs = { nixpkgs.url = "selected"; ' + prefix + declaration + ' };'
+                    self.assertEqual(u.url_match(text, 'nixpkgs').group(1), 'selected')
+                    with self.assertRaises(ValueError):
+                        u.url_match(prefix + declaration, 'nixpkgs')
 
     def test_duplicate_declaration_rejected(self):
         with self.assertRaises(ValueError): u.url_match('tool.url = "a"; tool.url = "b";', 'tool')
@@ -130,6 +153,17 @@ class FailureDiagnostics(unittest.TestCase):
             self.assertEqual(u.main(), 1)
         self.assertIn('validate-candidate: command deadline exceeded', error.getvalue())
         self.assertNotIn(secret, output.getvalue()+error.getvalue())
+
+    def test_existing_input_branch_is_reused_and_other_errors_propagate(self):
+        rules = {'forge': 'forgejo'}
+        with patch.object(a, 'api', return_value={'name': 'b'}) as call:
+            self.assertTrue(a.branch_exists(rules, '/repos/o/r', 'automation/input-updates-ab'))
+        self.assertEqual(call.call_args.args[2], '/repos/o/r/branches/automation/input-updates-ab')
+        with patch.object(a, 'api', side_effect=HTTPError('u', 404, 'm', None, None)):
+            self.assertFalse(a.branch_exists(rules, '/repos/o/r', 'x'))
+        with patch.object(a, 'api', side_effect=HTTPError('u', 403, 'm', None, None)):
+            with self.assertRaises(HTTPError):
+                a.branch_exists(rules, '/repos/o/r', 'x')
 
     def test_publication_reports_http_permission_failure_without_credentialed_url(self):
         secret = 'fixture-sensitive-writer-value'
@@ -200,9 +234,9 @@ class RealInputMovement(unittest.TestCase):
             run(dependency, 'git', 'commit', '-m', 'Fixture old source')
             old = run(dependency, 'git', 'rev-parse', 'HEAD')
             source = 'git+' + dependency.as_uri()
-            (consumer/'flake.nix').write_text('{ inputs.dep = { url = "'+source+'?rev='+old+'"; flake = false; }; outputs = {self, dep}: {}; }')
+            (consumer/'flake.nix').write_text('{ inputs.dep = { url = "'+source+'?rev='+old+'"; flake = false; }; inputs.other-dep = { url = "'+source+'?rev='+old+'"; flake = false; }; outputs = {self, dep, other-dep}: {}; }')
             (consumer/'ci').mkdir()
-            (consumer/'ci/tracking-inputs.json').write_text(json.dumps({'version':1,'inputs':{'dep':{'source':source+'?ref=main'}}}))
+            (consumer/'ci/tracking-inputs.json').write_text(json.dumps({'version':1,'inputs':{'dep':{'source':source+'?ref=main'}, 'other-dep':{'source':source+'?rev='+old}}}))
             run(consumer, 'git', 'add', 'flake.nix', 'ci/tracking-inputs.json')
             run(consumer, 'nix', 'flake', 'lock')
             run(consumer, 'git', 'add', 'flake.lock')
@@ -212,7 +246,10 @@ class RealInputMovement(unittest.TestCase):
             new = run(dependency, 'git', 'rev-parse', 'HEAD')
             with patch.object(u, 'ROOT', consumer):
                 self.assertEqual(u.update(), ['dep'])
-            self.assertIn('rev='+new, (consumer/'flake.nix').read_text())
+            updated = (consumer/'flake.nix').read_text()
+            self.assertIn('rev='+new, u.url_match(updated, 'dep').group(1))
+            self.assertIn('rev='+old, u.url_match(updated, 'other-dep').group(1))
+            self.assertEqual(u.root_node(json.loads((consumer/'flake.lock').read_text()), 'other-dep')['locked']['rev'], old)
             locked = u.root_node(json.loads((consumer/'flake.lock').read_text()), 'dep')
             self.assertEqual(locked['locked']['rev'], new)
             self.assertEqual(locked['original']['rev'], new)
