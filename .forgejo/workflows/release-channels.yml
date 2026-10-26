@@ -22,7 +22,8 @@ name: Verified release channels
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('verified-release-pr-{0}', github.ref) || 'verified-release-channels' }}
+  group: ${{ github.event_name == 'pull_request' && format('verified-release-pr-{0}', github.ref) || 'verified-release-channels'
+    }}
   cancel-in-progress: false
 jobs:
   test:
@@ -79,7 +80,8 @@ jobs:
     - test
     outputs:
       proof: ${{ steps.release.outputs.proof }}
-    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (github.event_name == 'schedule' && github.ref == 'main')) }}
+    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (github.event_name == 'schedule'
+      && github.ref == 'main')) }}
     steps:
     - name: Checkout exact source without a Node dependency
       env:
@@ -99,7 +101,7 @@ jobs:
         ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN || secrets.FLAKEY_ATTIC_TOKEN }}
       run: nix shell --option accept-flake-config false --no-write-lock-file --inputs-from . nixpkgs#python3 -c
         python3 ci/configure-attic-read.py
-    - name: Build complete native inventory, upload, verify remote NAR bytes
+    - name: Build complete inventory, checkpoint closures, verify remote NAR bytes
       id: release
       env:
         ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN || secrets.FLAKEY_ATTIC_TOKEN }}
@@ -120,8 +122,8 @@ jobs:
         filter-syscalls = false
     container:
       image: nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
-    if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || (github.event_name == 'schedule' && github.ref == 'main'))
-      }}
+    if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main'
+      || (github.event_name == 'schedule' && github.ref == 'main')) }}
     steps:
     - name: Checkout exact source without a Node dependency
       env:
@@ -166,7 +168,8 @@ jobs:
     - build_x86_64_linux
     permissions:
       contents: write
-    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (github.event_name == 'schedule' && github.ref == 'main')) }}
+    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (github.event_name == 'schedule'
+      && github.ref == 'main')) }}
     steps:
     - name: Checkout exact source without a Node dependency
       env:

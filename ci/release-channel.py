@@ -58,6 +58,16 @@ def failure_category(diagnostic):
     return next((name for name, pattern in patterns if re.search(pattern, diagnostic, re.I)), 'command-failed')
 
 
+def safe_detail(diagnostic):
+    # Last few Nix error lines, with credentials, URL userinfo and long output removed.
+    lines = [l.strip() for l in diagnostic.splitlines() if l.strip().startswith('error:')][-3:]
+    text = ' | '.join(lines)
+    text = re.sub(r'/nix/store/[0-9a-z]{32}-\S*', '<store-path>', text)
+    text = re.sub(r'(https?://)[^/@\s]+@', r'\1***@', text)
+    text = re.sub(r'\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+', '***', text)
+    return text[:300]
+
+
 def run(*args, env=None):
     try:
         result = subprocess.run(args, cwd=ROOT, env=env, text=True, capture_output=True, timeout=6*3600)
@@ -65,9 +75,11 @@ def run(*args, env=None):
         raise CommandFailure('command deadline exceeded') from None
     if result.returncode:
         # Nix diagnostics may contain private paths or authenticated URLs. Emit
-        # only a fixed classification and the numeric status, never their text.
-        kind = failure_category((result.stderr or '') + '\n' + (result.stdout or ''))
-        raise CommandFailure(kind + ' (exit ' + str(result.returncode) + ')')
+        # the classification, the status and a redacted tail of Nix error lines.
+        diagnostic = (result.stderr or '') + '\n' + (result.stdout or '')
+        message = failure_category(diagnostic) + ' (exit ' + str(result.returncode) + ')'
+        detail = safe_detail(diagnostic)
+        raise CommandFailure(message + (': ' + detail if detail else ''))
     return result.stdout.strip()
 
 
@@ -95,7 +107,7 @@ def policy():
     for system, targets in value['targets'].items():
         if system not in {'x86_64-linux', 'aarch64-linux', 'aarch64-darwin', 'x86_64-darwin'} or not targets:
             raise ValueError('Empty or unsupported required system')
-        for target in targets:
+        for index, target in enumerate(targets, 1):
             expression = (r'(?:nixosConfigurations|nixOnDroidConfigurations)\.[\w+-]+\..+'
                           if value.get('kind') == 'fleet' else r'(packages|cacheOnlyPackages)\.[\w+-]+\.[\w+-]+')
             if (not re.fullmatch(expression, target['attribute'])
@@ -295,14 +307,27 @@ def native_check_names(flake, system, env):
 
 
 def audit(rules, sha, system, record, env, flake=None, expression=None):
+    phase('validate-retained-proof')
     if (record.get('commit') != sha or record.get('policy') != digest(rules)
             or record.get('activationAuthorized') is not False):
         raise ValueError('Release source/policy differs from immutable proof')
+    phase('evaluate-retained-roots')
     roots = evaluated_roots(rules, system, flake, expression, env)
+    phase('discover-retained-closure')
     expected = remote_closure(roots, env)
+    phase('verify-retained-cache')
     closure = verify(roots, expected, env)
+    phase('compare-retained-proof')
     proof = digest({'commit': sha, 'policy': digest(rules), 'system': system, 'closure': closure})
     if record['proofs'].get(system) != proof:
+        recorded = record['proofs'].get(system)
+        print('Retained proof mismatch: ' + json.dumps({
+            'commit': sha, 'system': system, 'rootCount': len(roots),
+            'closurePathCount': len(expected), 'rootsDigest': digest(roots),
+            'closureDigest': closure,
+            'expectedProof': recorded if isinstance(recorded, str) and re.fullmatch(r'[a-f0-9]{64}', recorded) else 'invalid',
+            'actualProof': proof,
+        }, sort_keys=True), flush=True)
         raise ValueError('Cached closure differs from the original build proof')
     print('Verified exact cached release outputs without source builds for ' + system)
     return {'commit': sha, 'system': system, 'policy': digest(rules), 'proof': proof, 'roots': roots}
@@ -340,7 +365,9 @@ def release_refs(rules):
 
 
 def retain(system):
+    phase('inspect-retention-policy')
     rules = policy()
+    phase('read-release-ledgers')
     records = release_refs(rules)
     env = {k:v for k,v in os.environ.items() if k not in {'ATTIC_TOKEN','CHANNEL_TOKEN','SOURCE_TOKEN','GITHUB_TOKEN','GH_TOKEN'}}
     for sha, record in records.items():
@@ -351,16 +378,20 @@ def retain(system):
             with build_environment(dict(os.environ, CHANNEL_TOKEN=token)):
                 reader = git_env(directory)
             tree = str(Path(directory)/'source')
+            phase('fetch-retained-source')
             run('git', 'init', tree)
             run('git', '-C', tree, 'fetch', rules['remote'], sha, env=reader)
             run('git', '-C', tree, 'checkout', '--detach', 'FETCH_HEAD')
+            phase('inspect-retained-policy')
             historical = json.loads((Path(tree)/'ci/channels.json').read_text())
             flake = 'git+file://'+tree+'?rev='+sha
             if historical.get('submodules'):
+                phase('fetch-retained-submodules')
                 run('git', '-C', tree, 'submodule', 'update', '--init', '--recursive', env=reader)
                 flake += '&submodules=1'
             if system in historical['targets']:
                 audit(historical, sha, system, record, env, flake=flake)
+    phase('complete-retention')
     print('Cache retention verified for ' + str(len(records)) + ' advertised/recent source revisions')
 
 
@@ -394,8 +425,18 @@ def build(system):
     if set(systems) - set(rules.get('excludedSystems', [])) != set(rules['targets']):
         raise ValueError('Channel policy omits a supported system')
     roots = []
+    expected = {}
     with tempfile.TemporaryDirectory(prefix='channel-outputs-') as directory:
-        for target in targets:
+        phase('prepare-cache-publisher')
+        client = run('nix', 'build', '--inputs-from', flake, 'nixpkgs#attic-client', *FLAGS,
+                     '--no-link', '--print-out-paths', env=env)
+        if not STORE.fullmatch(client):
+            raise ValueError('Invalid publisher')
+        publish_env = dict(os.environ, ATTIC_BIN=client + '/bin/attic',
+                           ATTIC_ENDPOINT='https://attic.monke.fail', ATTIC_CACHE='flakey')
+        outputs = Path(directory) / 'outputs.txt'
+        for index, target in enumerate(targets, 1):
+            print(f'Processing inventory target {index}/{len(targets)}', flush=True)
             attr = flake + '#' + target['attribute']
             phase('inspect-output-policy')
             if target['visibility'] == 'public':
@@ -411,7 +452,24 @@ def build(system):
                         '--print-out-paths', env=env).splitlines()
             if not paths or any(not STORE.fullmatch(p) or p.endswith('.drv') for p in paths):
                 raise ValueError('Missing built outputs')
+            target_closure = info(paths, env)
+            if rules['forge'] == 'github':
+                if target['visibility'] == 'public':
+                    module('public-closure.py').check_paths(list(target_closure))
+                elif target['visibility'] == 'cache-only':
+                    module('build-cache-only.py').check(list(target_closure))
+            for path, entry in target_closure.items():
+                if path in expected and metadata(expected[path]) != metadata(entry):
+                    raise ValueError('Inconsistent local closure metadata')
+                expected[path] = entry
+            # Keep completed closures as substitutes if a later target or
+            # native check fails. Channel promotion still requires the full
+            # inventory, checks and independent cache verification below.
+            outputs.write_text('\n'.join(paths) + '\n')
+            phase('upload-target-closure')
+            run(sys.executable, str(ROOT / 'ci/push-attic.py'), '--outputs', str(outputs), env=publish_env)
             roots.extend(paths)
+            print(f'Built and cached inventory target {index}/{len(targets)}', flush=True)
         # All native flake checks are required, even when the package job would
         # otherwise reuse a cached output. Missing checks are an empty set.
         phase('build-native-checks')
@@ -422,29 +480,8 @@ def build(system):
             run('nix', 'build', flake + '#checks.' + system + '.' + name, *FLAGS, '--no-link', env=env)
         roots = sorted(set(roots))
         phase('inspect-built-closure')
-        expected = info(roots, env)
-        phase('enforce-publication-policy')
-        if rules['forge'] == 'github':
-            public = [t for t in targets if t['visibility'] == 'public']
-            # Runtime guards are also applied by the public builder. A combined
-            # closure can contain approved cache-only packages; never export it.
-            for target in public:
-                paths = run('nix', 'path-info', flake + '#' + target['attribute'], *FLAGS, env=env).splitlines()
-                with build_environment(env):
-                    module('public-closure.py').runtime(paths)
-            if any(t['visibility'] == 'cache-only' for t in targets):
-                module('build-cache-only.py').check(list(expected))
-        outputs = Path(directory) / 'outputs.txt'
-        outputs.write_text('\n'.join(roots) + '\n')
-        phase('prepare-cache-publisher')
-        client = run('nix', 'build', '--inputs-from', flake, 'nixpkgs#attic-client', *FLAGS,
-                     '--no-link', '--print-out-paths', env=env)
-        if not STORE.fullmatch(client):
-            raise ValueError('Invalid publisher')
-        publish_env = dict(os.environ, ATTIC_BIN=client + '/bin/attic',
-                           ATTIC_ENDPOINT='https://attic.monke.fail', ATTIC_CACHE='flakey')
-        phase('upload-selected-closure')
-        run(sys.executable, str(ROOT / 'ci/push-attic.py'), '--outputs', str(outputs), env=publish_env)
+        if not roots or not expected or not set(roots) <= set(expected):
+            raise ValueError('Missing built output closure')
         phase('verify-remote-cache')
         proof = verify(roots, expected, env)
         phase('record-release-proof')

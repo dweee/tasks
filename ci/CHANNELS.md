@@ -3,6 +3,10 @@
 `main` (or the configured source branch) accepts development changes. `tested`
 advances only after the entire explicit native inventory and flake checks build,
 upload, and pass independent remote NAR content and signature verification.
+Each target closure is policy checked and uploaded as soon as it builds, so an
+interrupted run can reuse completed outputs. These partial cache entries do not
+advance a channel; promotion still waits for the full inventory, native checks,
+and independent verification.
 `stable` is an owner-dispatched selection of an immutable `tested-<commit>` tag;
 it repeats builds/checks/cache verification. Flakes continue to lock exact commits.
 Failed, skipped or missing platforms never advance a channel. Promotion uses
@@ -38,7 +42,7 @@ Required repository configuration:
 - Forgejo requires the existing native `nix` and `native aarch64` Linux runners. Flakey
   and private inputs never go to GitHub. Already-public GitHub owning repos may
   use their existing native hosted Darwin builders independently.
-- Forgejo may supply `GITHUB_READ_TOKEN` for authenticated public metadata reads.
+- Forgejo may supply `GH_READ_TOKEN` for authenticated public metadata reads.
   Private input readers belong only on Forgejo; configure them before input jobs.
 
 The helper source lives in dave-fork-ci/ci. `channel-tool-hashes.json` identifies

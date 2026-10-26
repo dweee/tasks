@@ -41,7 +41,7 @@ jobs:
     - name: Monitor manual package/file pins
       id: monitor
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_READ_TOKEN }}
+        GH_TOKEN: ${{ secrets.GH_READ_TOKEN }}
         MONITOR_TOKEN: ${{ github.token }}
       run: nix shell --option accept-flake-config false --no-write-lock-file --inputs-from . nixpkgs#python3 -c
         python3 ci/update-monitor.py
@@ -78,6 +78,8 @@ jobs:
         git -c http.extraHeader="Authorization: Basic $auth" fetch -q origin "$SHA"
         git checkout -q --detach FETCH_HEAD
     - name: Resolve every tracked input and validate the exact candidate
+      env:
+        GH_TOKEN: ${{ secrets.GH_READ_TOKEN }}
       run: nix shell --option accept-flake-config false --no-write-lock-file --inputs-from . nixpkgs#python3 -c
         python3 ci/update-inputs.py
     - name: Open a review PR for changed pins
