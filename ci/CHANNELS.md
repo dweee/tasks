@@ -39,7 +39,7 @@ Required repository configuration:
 - Optional `UPDATE_TOKEN` is a repository-scoped app/PAT. On GitHub, use it when
   generated PRs must trigger further workflows; default GITHUB_TOKEN PRs do not.
 - Optional `CHANNEL_TOKEN` can identify a separate protected-branch publisher.
-- Forgejo requires the existing native `nix` and `native aarch64` Linux runners. Flakey
+- Forgejo requires the existing native `nix` and native aarch64 Linux runners. Flakey
   and private inputs never go to GitHub. Already-public GitHub owning repos may
   use their existing native hosted Darwin builders independently.
 - Forgejo may supply `GH_READ_TOKEN` for authenticated public metadata reads.
