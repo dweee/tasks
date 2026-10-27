@@ -2,7 +2,7 @@
 name: Input and manual version monitoring
 'on':
   schedule:
-  - cron: 17 */6 * * *
+  - cron: 37 */6 * * *
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   monitor:
-    runs-on: nix
+    runs-on: nix-light
     timeout-minutes: 120
     env:
       NIX_CONFIG: |
@@ -52,7 +52,7 @@ jobs:
       run: nix shell --option accept-flake-config false --no-write-lock-file --inputs-from . nixpkgs#python3 -c
         python3 ci/automation-forge.py report
   inputs:
-    runs-on: nix
+    runs-on: nix-light
     timeout-minutes: 120
     env:
       NIX_CONFIG: |

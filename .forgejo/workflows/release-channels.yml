@@ -4,9 +4,8 @@ name: Verified release channels
   push:
     branches:
     - main
-  pull_request: {}
   schedule:
-  - cron: 43 3 * * *
+  - cron: 37 3 * * *
   workflow_dispatch:
     inputs:
       channel:
@@ -22,12 +21,11 @@ name: Verified release channels
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('verified-release-pr-{0}', github.ref) || 'verified-release-channels'
-    }}
+  group: verified-release-channels
   cancel-in-progress: false
 jobs:
   test:
-    runs-on: nix
+    runs-on: nix-light
     timeout-minutes: 360
     env:
       NIX_CONFIG: |
