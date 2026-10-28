@@ -1,7 +1,7 @@
 {
   description = "Tasks.org desktop for Linux x86_64 and macOS Apple Silicon";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/fa45202b90a351983649116adb577827b2a9a679";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/200898b768eb6a20467a3b97835489f92e5c3f91";
 
   outputs = {self, nixpkgs}: let
     systems = ["x86_64-linux" "aarch64-darwin"];
