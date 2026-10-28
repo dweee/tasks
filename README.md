@@ -1,9 +1,16 @@
-This fork builds the Tasks.org desktop client for **Linux x86_64** and
-**macOS Apple Silicon**, with Nix packages and optional binary cache delivery.
-See [build and installation instructions](nix/README.md) and
-[desktop CI](https://github.com/dweee/tasks/actions/workflows/desktop.yml).
-The canonical fork is [d/tasks on Forgejo](https://git.monke.fail/d/tasks),
-with a [public GitHub mirror](https://github.com/dweee/tasks) running Actions.
+# Tasks desktop (public export)
+
+This repository is a sanitized public export of a private Tasks.org desktop
+fork. It builds the desktop client for **Linux x86_64** and **macOS Apple
+Silicon** from source with Gradle and Nix, and publishes test artifacts and
+optional desktop releases through GitHub Actions only.
+
+- [Build and installation instructions](nix/README.md)
+- [Desktop CI](https://github.com/dweee/tasks/actions/workflows/desktop.yml)
+
+The export contains no private infrastructure, credentials, cache endpoints or
+deployment configuration. Historical fork commits are rewritten to remove
+private CI paths; upstream ancestry is preserved.
 
 ---
 

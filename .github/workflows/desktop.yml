@@ -114,37 +114,10 @@ jobs:
           pathlib.Path(f'artifacts/sources-{system}.json').write_text(text)
           PY
           git add nix/sources.json
-      - name: Configure personal cache
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'dweee/tasks'
-        shell: bash
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-          ATTIC_SERVER: ${{ secrets.ATTIC_SERVER }}
-          ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
-        run: |
-          set -euo pipefail
-          test -n "$ATTIC_TOKEN"
-          test -n "$ATTIC_SERVER"
-          test -n "$ATTIC_CACHE"
-          nix shell --inputs-from . nixpkgs#attic-client -c attic login ci "$ATTIC_SERVER" "$ATTIC_TOKEN"
-          nix shell --inputs-from . nixpkgs#attic-client -c attic use "ci:$ATTIC_CACHE"
       - name: Build and verify Nix package
         run: |
           nix build --accept-flake-config --no-update-lock-file -L .#tasks-org
           test -x result/bin/tasks-org
-      - name: Publish Nix closure to personal cache
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'dweee/tasks'
-        shell: bash
-        env:
-          ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
-        run: |
-          set -euo pipefail
-          package=$(python3 -c 'import os; print(os.path.realpath("result"))')
-          nix shell --inputs-from . nixpkgs#attic-client -c attic push "ci:$ATTIC_CACHE" "$package"
-      - name: Remove cache credentials
-        if: always()
-        shell: bash
-        run: rm -f "$HOME/.config/attic/config.toml" "$HOME/.netrc"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: desktop-${{ matrix.system }}
@@ -175,19 +148,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Start delivery from canonical Forgejo main
-        env:
-          FORGEJO_PUSH_TOKEN: ${{ secrets.FORGEJO_PUSH_TOKEN }}
-          GIT_ASKPASS: ${{ github.workspace }}/.github/scripts/forgejo-askpass.sh
-          GIT_TERMINAL_PROMPT: '0'
-          SOURCE_REVISION: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          test -n "$FORGEJO_PUSH_TOKEN"
-          git remote add forgejo https://git.monke.fail/d/tasks.git
-          git -c credential.helper= fetch --no-tags forgejo main
-          git checkout -B delivery FETCH_HEAD
-          git merge-base --is-ancestor "$SOURCE_REVISION" HEAD
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: desktop-*
@@ -212,9 +172,6 @@ jobs:
       - name: Publish immutable bundles and package manifest
         env:
           GH_TOKEN: ${{ github.token }}
-          FORGEJO_PUSH_TOKEN: ${{ secrets.FORGEJO_PUSH_TOKEN }}
-          GIT_ASKPASS: ${{ github.workspace }}/.github/scripts/forgejo-askpass.sh
-          GIT_TERMINAL_PROMPT: '0'
           SOURCE_REVISION: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -243,5 +200,4 @@ jobs:
           fi
           git fetch origin "refs/tags/$tag:refs/tags/$tag"
           test "$(git rev-parse "$tag^{commit}")" = "$SOURCE_REVISION"
-          git -c credential.helper= push --atomic forgejo HEAD:refs/heads/main "refs/tags/$tag"
-          git push origin HEAD:refs/heads/main
+          git push origin HEAD:refs/heads/main "refs/tags/$tag"

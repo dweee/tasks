@@ -1,9 +1,4 @@
-title = "dweee/tasks gitleaks policy"
+title = "Tasks desktop public export gitleaks policy"
 
 [extend]
 useDefault = true
-
-[[allowlists]]
-description = "Attic cache public signing keys are published in cache metadata and are not secrets."
-regexTarget = "match"
-regexes = ['''flakey:[A-Za-z0-9+/=]{40,}''']

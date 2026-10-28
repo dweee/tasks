@@ -1,13 +1,12 @@
-# Tasks.org desktop fork
+# Tasks.org desktop public export
 
-Canonical fork: https://git.monke.fail/d/tasks.
-Public GitHub mirror and Actions runner: https://github.com/dweee/tasks.
-Push development changes to `gmf`; its push mirror updates GitHub on every
-commit, with an hourly retry. The mirror uses a repository-specific writable
-GitHub deploy key. Forgejo Actions is disabled for this repository because the
-native builds run on GitHub's Linux and Apple Silicon runners.
+This is the sanitized public export of a private Tasks.org desktop fork. Native
+builds run on GitHub's Linux and Apple Silicon runners, and all published
+artifacts, packages and releases come from this public repository. The export
+policy and reproduction steps are documented in
+[docs/public-export.md](../docs/public-export.md).
 `upstream` tracks https://github.com/tasks/tasks. The desktop app is upstream's
-Compose client, built from this fork's source for Linux (`x86_64-linux`) and
+Compose client, built from this export's source for Linux (`x86_64-linux`) and
 macOS (`aarch64-darwin`). Android, iOS and Conveyor store publication are outside
 this desktop pipeline; their original workflows are kept in `upstream-workflows`.
 
@@ -27,24 +26,18 @@ credentials are used. PostHog's application key is left empty.
 The Linux and Mac bundles are imported into Nix using their SHA-256 hashes.
 The Nix wrapper patches Linux ELF interpreters and supplies graphics, font and
 keyring libraries; macOS retains and verifies jpackage's ad-hoc signatures.
-CI builds these packages before publishing. Trusted `main` builds push complete
-Nix packages to the configured Attic cache using the repository secrets
-`ATTIC_SERVER`, `ATTIC_CACHE` and `ATTIC_TOKEN`. Cache endpoints, cache names and
-credentials belong in repository secrets and consuming system configuration.
-Pull requests cannot use those secrets or publish artifacts/cache.
+CI builds these packages before publishing. No binary cache credentials or
+private substituters are configured; builds use the public Nix cache and the
+GitHub Actions cache only. Pull requests run the same checks and do not publish.
 
 Only after both platforms pass does CI publish an immutable
 `desktop-<source-commit>` GitHub prerelease and commit `nix/sources.json` with the
-version, source revision, URLs and hashes. CI pushes the manifest commit and
-release tag atomically to Forgejo before updating GitHub. The repository secret
-`FORGEJO_PUSH_TOKEN` belongs to a restricted delivery account, has only
-`write:repository` scope, and is limited to `d/tasks`. The account has write
-access only to this repository and cannot create repositories or organizations.
-Manifest-only pushes are ignored by the workflow, including those arriving via
-the Forgejo mirror. Non-fast-forward publication fails rather than overwriting
-new source commits. The package is the tested source
-build from that release, rather than a build of an unpinned upstream binary.
-The manifest is initially populated by the first successful desktop workflow.
+version, source revision, URLs and hashes. The manifest commit and release tag are
+pushed to this repository's `origin` (`dweee/tasks`) only. Non-fast-forward
+publication fails rather than overwriting new source commits. The package is the
+tested source build from that release, rather than a build of an unpinned
+upstream binary. The manifest is initially populated by the first successful
+desktop workflow.
 
 ```sh
 nix build .#tasks-org
@@ -65,7 +58,7 @@ it does not provision the Android SDK used during Gradle configuration.
 ## NixOS and nix-darwin
 
 ```nix
-inputs.tasks-org.url = "git+https://git.monke.fail/d/tasks.git";
+inputs.tasks-org.url = "git+https://github.com/dweee/tasks.git";
 inputs.tasks-org.inputs.nixpkgs.follows = "nixpkgs";
 # Add inputs.tasks-org.nixosModules.default to NixOS modules, or
 # inputs.tasks-org.darwinModules.default to nix-darwin modules, then:
@@ -73,16 +66,18 @@ programs.tasks-org.enable = true;
 ```
 
 Both modules install the package and leave accounts, database and sync settings
-under the app's control. Configure cache substituters, signing keys and pull
-credentials in the consuming system. Keep the nixpkgs revision aligned with
-that system to reuse the same package closure. Updating the flake input advances
-to a tested release; CI does not activate personal machines or reboot them.
+under the app's control. Configure cache substituters and signing keys in the
+consuming system. Keep the nixpkgs revision aligned with that system to reuse the
+same package closure. Updating the flake input advances to a tested release; CI
+does not activate personal machines or reboot them.
 
 ## Publication checks
 
-CI scans fork commits for secrets, IP addresses, local home paths and configured
-private identifiers before building. `PUBLICATION_DENYLIST` is a repository
-secret containing a JSON array of private identifiers; its contents must never
-be committed. Fork pull requests run the generic checks without that secret.
-The local pre-push hook runs the same checks before any ref is published.
-The scan base is the upstream commit from which this desktop fork was created.
+CI scans the exported fork history for secrets, IP addresses, local home paths
+and configured private identifiers before building. `PUBLICATION_DENYLIST` is a
+repository secret containing a JSON array of private identifiers; its contents
+must never be committed. Pull requests run the generic checks without that
+secret. The scan base is the upstream commit from which this desktop export was
+created, and gitleaks scans the same range. See
+[docs/public-export.md](../docs/public-export.md) for the fail-closed export
+procedure.
