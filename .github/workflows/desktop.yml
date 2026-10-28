@@ -189,7 +189,7 @@ jobs:
           else
             gh release create "$tag" --target "$SOURCE_REVISION" --prerelease \
               --title "Tasks desktop ${SOURCE_REVISION:0:12}" \
-              --notes "Source-built and tested for Linux x86_64 and macOS Apple Silicon. Nix packages published to the configured binary cache. macOS is ad-hoc signed." \
+              --notes "Source-built and tested for Linux x86_64 and macOS Apple Silicon. Nix packages are built from this tested source. macOS is ad-hoc signed." \
               artifacts/tasks-org-*.tar.gz nix/sources.json
           fi
           git config user.name 'github-actions[bot]'
