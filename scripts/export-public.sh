@@ -41,10 +41,14 @@ if (not isinstance(policy, list) or not policy
     sys.exit(1)
 PY
 
-command -v git-filter-repo >/dev/null || {
+FILTER_REPO="${GIT_FILTER_REPO:-$(command -v git-filter-repo || true)}"
+if [[ -z "$FILTER_REPO" && -x "$HOME/.local/bin/git-filter-repo" ]]; then
+  FILTER_REPO="$HOME/.local/bin/git-filter-repo"
+fi
+if [[ -z "$FILTER_REPO" ]]; then
   echo "blocked: git-filter-repo is required" >&2
   exit 1
-}
+fi
 command -v nix >/dev/null || {
   echo "blocked: nix is required for the gitleaks scan" >&2
   exit 1
@@ -81,7 +85,7 @@ git clone --quiet --no-local "$repo_root" "$OUTPUT_DIR"
 cd "$OUTPUT_DIR"
 git checkout --quiet -B "$EXPORT_BRANCH" "$SOURCE_REF"
 
-git-filter-repo --force \
+"$FILTER_REPO" --force \
   --refs "$BASE..$EXPORT_BRANCH" \
   --invert-paths \
   --path .forgejo/ \
