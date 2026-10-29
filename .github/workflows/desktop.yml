@@ -31,9 +31,18 @@ jobs:
         run: |
           python3 -m unittest discover -s .github/scripts -p 'test_publication.py'
           python3 .github/scripts/check_publication.py
-      - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012
+      - uses: DeterminateSystems/determinate-nix-action@92957199488000b908fdad19f63711000965d8f3 # v3
         with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          source-tag: v3.24.1
+          summarize: false
+          kvm: false
+          extra-conf: |
+            experimental-features = nix-command flakes parallel-eval
+            eval-cores = 2
+      - name: Check Determinate Nix and daemon
+        run: |
+          nix --version | grep -F 'Determinate Nix 3.24.1'
+          nix store info --store daemon --json
       - name: Scan fork history for credentials
         run: |
           nix shell --inputs-from . nixpkgs#gitleaks -c gitleaks git . \
@@ -84,12 +93,20 @@ jobs:
           if [[ "$RUNNER_OS" == macOS ]]; then app=tasks-org.app; fi
           test -d "composeApp/build/compose/binaries/main/app/$app"
           tar -czf "artifacts/tasks-org-$SYSTEM.tar.gz" -C composeApp/build/compose/binaries/main/app "$app"
-      - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012
+      - uses: DeterminateSystems/determinate-nix-action@92957199488000b908fdad19f63711000965d8f3 # v3
         with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
+          source-tag: v3.24.1
+          summarize: false
+          kvm: false
+          extra-conf: |
+            experimental-features = nix-command flakes parallel-eval
+            eval-cores = 2
             fallback = true
             connect-timeout = 5
+      - name: Check Determinate Nix and daemon
+        run: |
+          nix --version | grep -F 'Determinate Nix 3.24.1'
+          nix store info --store daemon --json
       - name: Pin and import the bundle into Nix
         shell: bash
         run: |
