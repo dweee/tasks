@@ -218,3 +218,18 @@ jobs:
           git fetch origin "refs/tags/$tag:refs/tags/$tag"
           test "$(git rev-parse "$tag^{commit}")" = "$SOURCE_REVISION"
           git push origin HEAD:refs/heads/main "refs/tags/$tag"
+
+  # Stable, always-running aggregate: the required status check for this repository.
+  test:
+    name: test
+    if: ${{ always() }}
+    needs: [publication, desktop, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every job in this workflow to have passed or been skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
