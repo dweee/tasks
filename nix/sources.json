@@ -1,14 +1,14 @@
 {
-  "version": "15.13-unstable-5a1d6822fbae",
-  "revision": "5a1d6822fbae2f4a3ec770ab32f6294786e1ba72",
+  "version": "15.13-unstable-8c599a0f8882",
+  "revision": "8c599a0f8882d02a0ab6e51eb284f84cea974d26",
   "sources": {
     "aarch64-darwin": {
-      "url": "https://github.com/dweee/tasks/releases/download/desktop-5a1d6822fbae2f4a3ec770ab32f6294786e1ba72/tasks-org-aarch64-darwin.tar.gz",
-      "hash": "sha256-EtyGYdtkKzrIU/3rLGdeDp7BDFsjPtgyMQz4nzWGEQU="
+      "url": "https://github.com/dweee/tasks/releases/download/desktop-8c599a0f8882d02a0ab6e51eb284f84cea974d26/tasks-org-aarch64-darwin.tar.gz",
+      "hash": "sha256-YzqKQKMwAx57aSp5sQ2vZbk/AAJWMD+LkhbNfeae+Nw="
     },
     "x86_64-linux": {
-      "url": "https://github.com/dweee/tasks/releases/download/desktop-5a1d6822fbae2f4a3ec770ab32f6294786e1ba72/tasks-org-x86_64-linux.tar.gz",
-      "hash": "sha256-DsEBqlMI08fdTYWYtRu6wre0oWCRoMNOsu6C3QpBVl4="
+      "url": "https://github.com/dweee/tasks/releases/download/desktop-8c599a0f8882d02a0ab6e51eb284f84cea974d26/tasks-org-x86_64-linux.tar.gz",
+      "hash": "sha256-FsE5Sj5TyEGGaP5dNwZNcPybowtQ3gSzyAj0eJGF0XM="
     }
   }
 }
