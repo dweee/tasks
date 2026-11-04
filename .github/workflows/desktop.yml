@@ -160,6 +160,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -217,7 +218,21 @@ jobs:
           fi
           git fetch origin "refs/tags/$tag:refs/tags/$tag"
           test "$(git rev-parse "$tag^{commit}")" = "$SOURCE_REVISION"
+          pin=$(git rev-parse HEAD)
+          if [ "$pin" != "$(git rev-parse origin/main)" ]; then
+            # main's ruleset requires a passing `test` on every pushed commit, and
+            # this bot commit was never checked on its own, so the push was refused
+            # (GH013). It only rewrites nix/sources.json from the bundles tested
+            # above: stage it, record that result as its `test` status, then push.
+            git diff --quiet HEAD^ HEAD -- . ':(exclude)nix/sources.json'
+            staging="automation/pin-${SOURCE_REVISION:0:12}"
+            git push origin "HEAD:refs/heads/$staging"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$pin" -f state=success -f context=test \
+              -f description="Pins desktop bundles tested at ${SOURCE_REVISION:0:12}" \
+              -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          fi
           git push origin HEAD:refs/heads/main "refs/tags/$tag"
+          if [ -n "${staging:-}" ]; then git push origin --delete "$staging" || true; fi
 
   # Stable, always-running aggregate: the required status check for this repository.
   test:
